@@ -1,4 +1,4 @@
-import { useEffect, useState, forwardRef } from "react";
+import { useEffect, useState, forwardRef, useMemo } from "react";
 import styles from "./Diary.module.css";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -12,28 +12,41 @@ import { useDispatch, useSelector } from "react-redux";
 import { getProducts } from "../../redux/products/operations.js";
 
 export default function Diary({
-  products = [],
-  date = new Date(),
   dailyRate = 2800,
   onAddClick,
-  onAdd,
-  onDelete,
   onDateChange,
 }) {
-  // Tarih (controlled/uncontrolled destekli)
-  const [productList] = useState([]);
-  const [localDate, setLocalDate] = useState(date);
+  const dispatch = useDispatch();
+  const { list: reduxProducts = [] } = useSelector((state) => state.products);
+  const { data: diaryData } = useSelector((state) => state.userDiary);
+  const [products, setProducts] = useState([]);
+  const productList = useMemo(() => {
+    return reduxProducts.map(p => ({ value: p.value, label: p.label }));
+  }, [reduxProducts]);
+
   useEffect(() => {
-    setLocalDate(date);
-  }, [date]);
+    dispatch(getProducts());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const currentDate = onDateChange ? new Date() : localDate;
-
-  const handleDatePick = (d) => {
-    if (!d) return;
-    if (typeof onDateChange === "function") onDateChange(d);
-    else setLocalDate(d);
+  const handleAdd = (item) => {
+    const selectedProduct = reduxProducts.find(p => p.value === item.name);
+    const kcalPer100 = selectedProduct ? selectedProduct.kcalPer100 : 0;
+    setProducts(prev => [...prev, { ...item, kcalPer100 }]);
   };
+
+  const handleDelete = (index) => {
+    setProducts(prev => prev.filter((_, i) => i !== index));
+  };
+
+
+  const currentDate = onDateChange ? new Date() : new Date();
+
+  // const handleDatePick = (d) => {
+  //   if (!d) return;
+  //   if (typeof onDateChange === "function") onDateChange(d);
+  //   else setLocalDate(d);
+  // };
 
   // Takvim ikon butonu
   const CalendarIconBtn = forwardRef(function CalendarIconBtn(
@@ -90,7 +103,7 @@ export default function Diary({
       .trim()
       .min(2, "Please enter at least 2 characters.")
       .required("Please enter at least 2 characters."),
-    grams: Yup.number()
+    weight: Yup.number()
       .transform((val, orig) => {
         if (typeof orig === "string") {
           const n = parseFloat(orig.replace(",", "."));
@@ -99,6 +112,7 @@ export default function Diary({
         return val;
       })
       .typeError("Please enter a positive number.")
+      .min(1, "At least 1 gram")
       .positive("Please enter a positive number.")
       .required("Please enter a positive number."),
   });
@@ -113,7 +127,8 @@ export default function Diary({
       <div className={styles.DiaryContent}>
         <h3 className={styles.DiaryDate}>
           {fmtDate(currentDate)}
-          <DatePicker
+          {/* DatePicker temporarily disabled due to infinite loop */}
+          {/* <DatePicker
             selected={currentDate}
             onChange={handleDatePick}
             customInput={<CalendarIconBtn />}
@@ -122,7 +137,7 @@ export default function Diary({
             calendarClassName={styles.GrayCalendar}
             dayClassName={() => styles.GrayCalendarDay}
             popperClassName={styles.GrayCalendarPopper}
-          />
+          /> */}
         </h3>
 
         {/* TABLET & DESKTOP inline add (Formik + Toastify) */}
@@ -131,15 +146,15 @@ export default function Diary({
           validationSchema={AddSchema}
           onSubmit={(vals, { resetForm }) => {
             const gramsNumber =
-              typeof vals.grams === "number"
-                ? vals.grams
-                : parseFloat(String(vals.grams).replace(",", "."));
-            onAdd?.({ name: vals.name.trim(), grams: gramsNumber });
+              typeof vals.weight === "number"
+                ? vals.weight
+                : parseFloat(String(vals.weight).replace(",", "."));
+            handleAdd({ name: vals.name.trim(), grams: gramsNumber });
 
             resetForm();
           }}
           validateOnBlur
-          validateOnChange={false}
+          validateOnChange
         >
           {({
             setFieldValue,
@@ -206,7 +221,7 @@ export default function Diary({
                 type="button"
                 className={styles.DiaryDeleteBtn}
                 aria-label={`Delete ${p.name}`}
-                onClick={() => onDelete?.(i)}
+                onClick={() => handleDelete(i)}
               >
                 ×
               </button>
@@ -256,10 +271,18 @@ export default function Diary({
         <div className={styles.FoodBox}>
           <h4>Food not recommended</h4>
           <ul>
-            <li>Flour products</li>
-            <li>Milk</li>
-            <li>Read meat</li>
-            <li>Smoked meats</li>
+            {diaryData?.notAllowedProducts?.length > 0 ? (
+              diaryData.notAllowedProducts.map((item, index) => (
+                <li key={index}>{item}</li>
+              ))
+            ) : (
+              <>
+                <li>Flour products</li>
+                <li>Milk</li>
+                <li>Read meat</li>
+                <li>Smoked meats</li>
+              </>
+            )}
           </ul>
         </div>
       </div>

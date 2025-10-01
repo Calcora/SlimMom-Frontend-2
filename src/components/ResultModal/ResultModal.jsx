@@ -28,6 +28,7 @@ const ResultModal = ({ data }) => {
         onClick={() => {
           dispatch(resetPublicCal());
           dispatch(resetUserData());
+          window.location.replace("/diary");
         }}
       >
         Start losing weight

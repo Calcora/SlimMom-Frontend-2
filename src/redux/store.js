@@ -23,6 +23,12 @@ export const store = configureStore({
     products: productsReducer,
     userDiary: userDiaryReducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: ["persist/PERSIST"],
+      },
+    }),
 });
 
 export let persistor = persistStore(store);
